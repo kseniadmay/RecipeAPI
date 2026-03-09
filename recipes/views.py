@@ -11,6 +11,7 @@ from .models import Category, Recipe, Favorite
 from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailSerializer, FavoriteSerializer, \
     RegisterSerializer, UserSerializer
 from .filters import RecipeFilter
+from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -18,14 +19,16 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    # Создавать и редактировать категории могут только админы
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """CRUD API для рецептов с поддержкой фильтров, поиска и сортировки"""
 
     queryset = Recipe.objects.all().select_related('author', 'category').prefetch_related('ingredients', 'steps')
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
     # Фильтрация
@@ -49,6 +52,21 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Автоматически устанавливает текущего пользователя как автора нового рецепта"""
 
         serializer.save(author=self.request.user)
+
+    def get_permissions(self):
+        """Разные разрешения для разных действий"""
+
+        if self.action == ['update', 'partial_update', 'destroy']:
+            # Только автор может редактировать и удалять рецепты
+            permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
+        elif self.action == 'create':
+            # Только авторизованные могут создавать рецепты
+            permission_classes = [IsAuthenticated]
+        else:
+            # Читать рецепты могут все
+            permission_classes = [AllowAny]
+
+        return [permission() for permission in permission_classes]
 
     @action(detail=False, methods=['get'])
     def random(self, request):
