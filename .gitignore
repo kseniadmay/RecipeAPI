@@ -14,7 +14,7 @@ db.sqlite3
 # Python
 *.pyc
 __pycache__/
-test.py
+auth.py
 
 
 На будущее/
