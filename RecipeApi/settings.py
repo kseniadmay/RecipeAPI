@@ -168,14 +168,6 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,  # True - блокируем старые refresh-токены
 }
 
-# CORS (разрешение запросов с других доменов/портов)
-CORS_ALLOW_ALL_ORIGINS = True
-# В продакшене заменить на:
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",  # Если будет frontend
-#     "https://ваш_домен.com",
-# ]
-
 # Настройка Swagger для поддержки JWT-токенов. Позволяет в интерфейсе Swagger вставлять токен в поле "Authorize" и
 # автоматически добавлять заголовок Authorization: Bearer <token> к запросам
 SWAGGER_SETTINGS = {
@@ -185,5 +177,15 @@ SWAGGER_SETTINGS = {
             'name': 'Authorization',
             'in': 'header'
         }
-    }
+    },
+    'USE_SESSION_AUTH': False,  # Убирает форму username/password
 }
+
+# CORS (разрешение запросов с других доменов/портов)
+CORS_ALLOW_ALL_ORIGINS = True
+# В продакшене заменить на:
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # Если будет frontend
+#     "https://ваш_домен.com",
+# ]
+
