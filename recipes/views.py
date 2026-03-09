@@ -10,6 +10,7 @@ from drf_yasg.utils import swagger_auto_schema
 from .models import Category, Recipe, Favorite
 from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailSerializer, FavoriteSerializer, \
     RegisterSerializer, UserSerializer
+from .filters import RecipeFilter
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -28,13 +29,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
     # Фильтрация
-    filter_fields = ('difficulty', 'category')
+    filter_fields = RecipeFilter
 
     # Поиск
-    search_fields = ('title', 'description')
+    search_fields = ('title', 'description', 'ingredients__name')
 
     # Сортировка
-    ordering_fields = ('created_at', 'cook_time', 'servings')
+    ordering_fields = ('created_at', 'cook_time', 'servings', 'calories')
     ordering = ('-created_at',)
 
     def get_serializer_class(self):
