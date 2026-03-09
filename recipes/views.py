@@ -12,6 +12,7 @@ from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailS
     RegisterSerializer, UserSerializer
 from .filters import RecipeFilter
 from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
+from .pagination import RecipePagination
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -40,6 +41,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     # Сортировка
     ordering_fields = ('created_at', 'cook_time', 'servings', 'calories')
     ordering = ('-created_at',)
+
+    # Пагинация
+    pagination_class = RecipePagination
 
     def get_serializer_class(self):
         """Использует краткий сериализатор для списка и подробный для остальных действий"""
