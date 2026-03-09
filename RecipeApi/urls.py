@@ -42,8 +42,8 @@ urlpatterns = [
     path('api/', include('recipes.urls')),
 
     # JWT Аутентификация
-    path('api/auth/login', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Swagger документация
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

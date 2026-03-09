@@ -14,6 +14,7 @@ db.sqlite3
 # Python
 *.pyc
 __pycache__/
+test.py
 
 
 На будущее/

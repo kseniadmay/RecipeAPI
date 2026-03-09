@@ -11,8 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
-from decouple import config       # Читаем переменные из .env
-from datetime import timedelta    # Задаём срок жизни JWT-токенов
+from decouple import config     # Читаем переменные из .env
+from datetime import timedelta  # Задаём срок жизни JWT-токенов
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -170,3 +170,15 @@ SIMPLE_JWT = {
 
 # CORS (разрешение запросов с других доменов/портов)
 CORS_ALLOW_ALL_ORIGINS = True  # В продакшене поменять на список разрешённых доменов
+
+# Настройка Swagger для поддержки JWT-токенов. Позволяет в интерфейсе Swagger вставлять токен в поле "Authorize" и
+# автоматически добавлять заголовок Authorization: Bearer <token> к запросам
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    }
+}

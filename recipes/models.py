@@ -113,6 +113,9 @@ class Ingredient(models.Model):
         verbose_name_plural = 'Ингредиенты'
         ordering = ['name']
 
+        # Ограничение: в одном рецепте один и тот же ингредиент может быть только один раз
+        constraints = [models.UniqueConstraint(fields=['recipe', 'name'], name='unique_recipe_ingredient')]
+
     def __str__(self):
         return f'{self.name} - {self.amount} {self.unit}'
 

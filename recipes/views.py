@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg.utils import swagger_auto_schema
 
 from .models import Category, Recipe, Favorite
 from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailSerializer, FavoriteSerializer, \
@@ -95,6 +96,12 @@ class FavoriteViewSet(viewsets.ModelViewSet):
         return Response({'detail': "Удалено из избранного!"}, status=status.HTTP_204_NO_CONTENT)
 
 
+# swagger_auto_schema здесь используется, чтобы Swagger видел, какие данные принимает register.
+# Без него в функциональном представлении (@api_view) форма JSON не появляется
+@swagger_auto_schema(
+    method='post',
+    request_body=RegisterSerializer
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -115,8 +122,8 @@ def register(request):
         return Response({
             'user': UserSerializer(user).data,
             'refresh': str(refresh),
-            'access': str(refresh.access_token)},
-            status=status.HTTP_201_CREATED)
+            'access': str(refresh.access_token)
+        }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
