@@ -86,12 +86,12 @@ WSGI_APPLICATION = 'RecipeApi.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # Используем PostgreSQL
-        'NAME': config('DATABASE_NAME'),            # \
-        'USER': config('DATABASE_USER'),            #  \
-        'PASSWORD': config('DATABASE_PASSWORD'),    #   - Берём все переменные из .env
-        'HOST': config('DATABASE_HOST'),            #  /
-        'PORT': config('DATABASE_PORT'),            # /
+        'ENGINE': 'django.db.backends.postgresql',                    # Используем PostgreSQL
+        'NAME': config('DATABASE_NAME', default='recipe_db'),         # \
+        'USER': config('DATABASE_USER', default='postgres'),          #  \
+        'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),  #   - Берём все переменные из .env
+        'HOST': config('DATABASE_HOST', default='db'),                #  / по умолчанию 'db' для Docker
+        'PORT': config('DATABASE_PORT', default='5432'),              # /
     }
 }
 

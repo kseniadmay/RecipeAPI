@@ -140,7 +140,7 @@ curl -X POST http://127.0.0.1:8000/api/recipes/ \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Бутерброд",
-    "description": "Вкусный бутерброд",
+    "description": "Вкусный бутерброд с колбаской",
     "cook_time": 5,
     "servings": 1,
     "difficulty": "easy",

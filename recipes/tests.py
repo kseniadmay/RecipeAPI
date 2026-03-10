@@ -13,7 +13,6 @@ class TestRecipeAPI:
     def test_list_recipes(self, api_client):
         """Тест получения списка рецептов"""
 
-        # Создаём тестовые рецепты
         RecipeFactory.create_batch(5)
 
         url = reverse('recipe-list')
@@ -37,6 +36,7 @@ class TestRecipeAPI:
         }
 
         response = api_client.post(url, data, format='json')
+
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_create_recipe_authorized(self, authenticated_client):
@@ -89,7 +89,6 @@ class TestRecipeAPI:
         """Тест обновления рецепта автором"""
 
         recipe = RecipeFactory(author=user)
-
         IngredientFactory(recipe=recipe, name='Яйца', amount=2, unit='шт')
         StepFactory(recipe=recipe, order=1, description='Жарить')
 
@@ -120,6 +119,7 @@ class TestRecipeAPI:
 
         recipe = RecipeFactory()
         other_user = UserFactory()
+
         api_client.force_authenticate(user=other_user)
 
         url = reverse('recipe-detail', kwargs={'pk': recipe.pk})
@@ -133,6 +133,7 @@ class TestRecipeAPI:
         """Тест удаления рецепта автором"""
 
         recipe = RecipeFactory(author=user)
+
         api_client.force_authenticate(user=user)
 
         url = reverse('recipe-detail', kwargs={'pk': recipe.pk})
