@@ -30,6 +30,15 @@ DEBUG = config('DEBUG', default=False, cast=bool)  # Берём DEBUG из .env,
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')  # Берём разрешённые хосты из .env и
                                                                                    # преобразуем в список
 
+# Настройки безопасности для продакшена
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True                  # Автоматически перенаправляет все HTTP-запросы на HTTPS
+    SESSION_COOKIE_SECURE = True                # Делает cookie сессий доступными только по HTTPS
+    CSRF_COOKIE_SECURE = True                   # То же самое для CSRF cookie
+    SECURE_BROWSER_XSS_FILTER = True            # Включает встроенный фильтр XSS в браузерах
+    SECURE_CONTENT_TYPE_NOSNIFF = True          # Запрещает браузеру угадывать тип контента
+    X_FRAME_OPTIONS = 'DENY'                    # Запрещает вставку сайта в iframe
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
