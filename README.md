@@ -2,7 +2,8 @@
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://recipeapi.up.railway.app/docs/)
 
-REST API для хранения рецептов: создание, поиск, фильтрация и избранное. Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger.
+REST API для хранения рецептов: создание, поиск, фильтрация и избранное.  
+Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger.
 
 ---
 
