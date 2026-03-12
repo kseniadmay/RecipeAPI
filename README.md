@@ -1,7 +1,61 @@
 # RECIPE API
 
-REST API для хранения рецептов: создание, поиск, фильтрация и избранное.   
-Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://recipeapi.up.railway.app/docs/)
+
+REST API для хранения рецептов: создание, поиск, фильтрация и избранное. Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger.
+
+---
+
+## Live Demo
+
+**Swagger документация:**  
+https://recipeapi.up.railway.app/docs/
+
+
+### 1. Тестовый пользователь
+Используйте этот аккаунт для проверки API:
+
+Username: `demo`  
+Password: `demo1234`
+
+
+### 2. Получение токена
+API защищён JWT. Токен нужен для всех операций, которые требуют авторизации: создание и редактирование рецептов, 
+добавление в избранное, доступ к личным данным.
+Без токена защищённые запросы вернут ошибку `401 Unauthorized`.
+
+Отправьте POST-запрос на логин пользователя `demo`:
+
+```http
+POST https://recipeapi.up.railway.app/api/auth/login/
+Content-Type: application/json
+
+{
+  "username": "demo",
+  "password": "demo1234"
+}
+```
+В ответе получите JSON с полем `access` - это ваш токен.
+
+Пример ответа сервера:
+```JSON
+{
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+```
+
+
+### 3. Использование токена
+
+В Swagger:
+1. Нажмите `Authorize`
+2. Вставьте: `Bearer <введите_ваш_токен>`  
+
+Или в любом HTTP‑клиенте используйте заголовок:  
+`Authorization: Bearer <введите_ваш_токен>`
+
+После этого защищённые endpoints будут доступны для тестирования.  
 
 ---
 
@@ -128,15 +182,15 @@ curl -X POST http://127.0.0.1:8000/api/auth/register/ \
   -d '{
     "username": "user",
     "email": "user@example.com",
-    "password": "pass123",
-    "password2": "pass123"
+    "password": "pass1234",
+    "password2": "pass1234"
   }'
 ```
 
 ### Создание рецепта
 ```bash
 curl -X POST http://127.0.0.1:8000/api/recipes/ \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer <введите_ваш_токен>" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Бутерброд",
@@ -167,13 +221,6 @@ curl http://127.0.0.1:8000/api/recipes/?cook_time_max=30
 curl http://127.0.0.1:8000/api/recipes/?difficulty=easy
 ```
 
-## Аутентификация
-
-API использует JWT (JSON Web Tokens) для аутентификации.
-
-1. Получите токен через `/api/auth/login/`
-2. Добавляйте токен в заголовок: `Authorization: Bearer YOUR_TOKEN`
-
 ## Структура проекта
 ```
 RecipeAPI/                # Корень репозитория
@@ -187,9 +234,17 @@ RecipeAPI/                # Корень репозитория
 │   ├── permissions.py    # Разрешения
 │   ├── tests.py          # Тесты
 │   └── factories.py      # Фабрики для тестов
+├── manage.py             # Точка входа Django
 ├── requirements.txt      # Зависимости для запуска проекта
 ├── requirements-dev.txt  # Зависимости для разработки
+├── Dockerfile            # Docker образ проекта
+├── docker-compose.yml    # Docker Compose конфигурация
+├── entrypoint.sh         # Скрипт запуска Docker контейнера
 ├── .env.example          # Шаблон переменных окружения
+# ├── pytest.ini          # Настройки тестирования
+# ├── conftest.py         # Общие фикстуры для тестов
+# ├── Procfile            # Для деплоя на Railway
+# ├── runtime.txt         # Версия Python для хостинга
 └── README.md             # Документация
 ```
 
