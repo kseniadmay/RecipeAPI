@@ -34,6 +34,8 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(','
 
 # Настройки безопасности для продакшена
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # Сообщает Django, что запрос был HTTPS до прокси (Railway)
+
     SECURE_SSL_REDIRECT = True                  # Автоматически перенаправляет все HTTP-запросы на HTTPS
     SESSION_COOKIE_SECURE = True                # Делает cookie сессий доступными только по HTTPS
     CSRF_COOKIE_SECURE = True                   # То же самое для CSRF cookie
@@ -104,7 +106,7 @@ if DEBUG:
             'NAME': config('DATABASE_NAME', default='recipe_db'),         # \
             'USER': config('DATABASE_USER', default='postgres'),          #  \
             'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),  #   - Берём все переменные из .env
-            'HOST': config('DATABASE_HOST', default='localhost'),                #  / по умолчанию 'db' для Docker
+            'HOST': config('DATABASE_HOST', default='localhost'),         #  /
             'PORT': config('DATABASE_PORT', default='5432'),              # /
         }
     }
