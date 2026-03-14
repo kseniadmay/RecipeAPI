@@ -223,6 +223,7 @@ else:
 # Проверяем, что мы запускаем тесты через pytest
 RUNNING_TESTS = 'pytest' in sys.argv or os.environ.get('DJANGO_SETTINGS_MODULE', '').endswith('Test')
 
+print('RUNNING_TESTS =', RUNNING_TESTS)
 if RUNNING_TESTS:
     DATABASES = {
         'default': {
