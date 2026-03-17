@@ -3,6 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://recipeapi.up.railway.app/docs/)
 
 REST API для хранения рецептов: создание, поиск, фильтрация и избранное.  
+Проект демонстрирует архитектуру production-ready API с асинхронной обработкой задач и кэшированием.  
 Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger.
 
 ## Live Demo
@@ -33,7 +34,7 @@ Content-Type: application/json
   "password": "demo1234"
 }
 ```
-В ответе получите JSON с полем `access` - это ваш токен.
+В ответе получите JSON с полем `access` – это ваш токен.
 
 Пример ответа сервера:
 ```JSON
@@ -57,49 +58,77 @@ Content-Type: application/json
 
 ## Стек технологий
 
-Python 3.14  
-Django 6.0  
-Django REST Framework 3.16  
-PostgreSQL / SQLite  
-JWT Authentication  
-Swagger/OpenAPI документация  
-pytest для тестирования
+- Python 3.14  
+- Django 6.0  
+- Django REST Framework 3.16  
+- PostgreSQL / SQLite  
+- Redis (кэш и брокер сообщений)  
+- Celery 5.4 (фоновые задачи)  
+- Celery Beat (периодические задачи)  
+- JWT Authentication  
+- Swagger/OpenAPI документация  
+- pytest для тестирования
 
 ## Возможности
 
-**Рецепты**: CRUD операции, поиск, фильтры  
-**Ингредиенты и шаги**: детальное и пошаговое описание рецептов  
-**Категории**: организация рецептов по типам  
-**Избранное**: добавление любимых рецептов  
-**Аутентификация**: JWT токены  
-**Фильтрация**: по времени, сложности, калориям  
-**Поиск**: по названию, описанию, ингредиентам  
-**API документация**: Swagger UI
+### Основные функции
 
+- **Рецепты**: CRUD операции, поиск, фильтры  
+_Реализация:_ Django REST Framework, select_related, prefetch_related  
+
+- **Ингредиенты и шаги**: детальное и пошаговое описание рецептов  
+_Реализация:_ вложенные сериализаторы  
+
+- **Категории**: организация рецептов по типам  
+_Реализация:_ отдельная модель  
+
+- **Избранное**: сохранение любимых рецептов пользователя  
+_Реализация:_ many-to-many связь  
+
+- **Аутентификация**: JWT токены  
+_Реализация:_ SimpleJWT  
+
+- **Поиск и фильтрация**: по названию, ингредиентам, времени, сложности  
+_Реализация:_ DRF filters + кастомная логика  
+
+
+### Системные возможности
+
+- **Асинхронные задачи**: email уведомления, генерация превью, периодические задачи  
+_Реализация:_ Celery + Redis + Celery Beat  
+
+- **Производительность**: снижение времени ответа API (≈26ms → ≈5ms)  
+_Реализация:_ Redis кэширование + оптимизация запросов  
+
+- **Инфраструктура**: контейнеризация сервисов  
+_Реализация:_ Docker Compose (db, redis, web, celery_worker, celery_beat)  
+
+- **Документация API**: Swagger UI  
+_Реализация:_ OpenAPI
 ## Endpoints
 
 ### Аутентификация
 
-`POST /api/auth/register/` - регистрация  
-`POST /api/auth/login/` - получение JWT токена  
-`GET /api/auth/me/` - текущий пользователь  
+`POST /api/auth/register/` – регистрация  
+`POST /api/auth/login/` – получение JWT токена  
+`GET /api/auth/me/` – текущий пользователь  
 
 ### Рецепты
 
-`GET /api/recipes/` - список рецептов  
-`POST /api/recipes/` - создать рецепт  
-`GET /api/recipes/{id}/` - детали рецепта  
-`PUT /api/recipes/{id}/` - обновить рецепт  
-`DELETE /api/recipes/{id}/` - удалить рецепт  
-`GET /api/recipes/random/` - случайный рецепт  
-`GET /api/recipes/quick_recipes/` - быстрые рецепты до 30 минут  
-`POST /api/recipes/{id}/add_to_favorites/` - добавить в избранное  
-`DELETE /api/recipes/{id}/remove_from_favorites/` - удалить из избранного  
+`GET /api/recipes/` – список рецептов  
+`POST /api/recipes/` – создать рецепт  
+`GET /api/recipes/{id}/` – детали рецепта  
+`PUT /api/recipes/{id}/` – обновить рецепт  
+`DELETE /api/recipes/{id}/` – удалить рецепт  
+`GET /api/recipes/random/` – случайный рецепт  
+`GET /api/recipes/quick_recipes/` – быстрые рецепты до 30 минут  
+`POST /api/recipes/{id}/add_to_favorites/` – добавить в избранное  
+`DELETE /api/recipes/{id}/remove_from_favorites/` – удалить из избранного  
 
 ### Категории
 
-`GET /api/categories/` - список категорий  
-`POST /api/categories/` - создать категорию (только администраторам)
+`GET /api/categories/` – список категорий  
+`POST /api/categories/` – создать категорию (только администраторам)
 
 ## Установка и запуск
 
@@ -217,35 +246,90 @@ curl http://127.0.0.1:8000/api/recipes/?cook_time_max=30
 curl http://127.0.0.1:8000/api/recipes/?difficulty=easy
 ```
 
+## Ключевые решения
+
+- Асинхронные задачи вынесены в Celery для разгрузки API (email, обработка изображений, фоновые операции)  
+- Redis используется как единая точка для кэширования и брокера сообщений  
+- Оптимизация ORM-запросов через select_related и prefetch_related  
+- Кэширование снижает время ответа API (≈26ms → ≈5ms)  
+- Docker Compose объединяет все сервисы в изолированную среду
+
+## Архитектура
+```
+┌─────────────┐
+│   Client    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐      ┌─────────────┐
+│   Nginx     │◄────►│    Redis    │
+│ (optional)  │      │   (Cache)   │
+└──────┬──────┘      └─────────────┘
+       │
+       ▼
+┌─────────────┐      ┌─────────────┐
+│   Django    │◄────►│ PostgreSQL  │
+│     API     │      │     DB      │
+└──────┬──────┘      └─────────────┘
+       │
+       ▼
+┌─────────────┐      ┌─────────────┐
+│   Celery    │◄────►│    Redis    │
+│   Worker    │      │   (Broker)  │
+└─────────────┘      └─────────────┘
+       ▲
+       │
+┌─────────────┐
+│ Celery Beat │
+│ (Scheduler) │
+└─────────────┘
+```
+Компоненты:
+
+Django API – основное приложение (REST API)  
+PostgreSQL – реляционная база данных  
+Redis – кэш и брокер сообщений для Celery  
+Celery Worker – обработка фоновых задач  
+Celery Beat – выполнение периодических задач  
+Gunicorn – WSGI сервер  
+Docker Compose – управление сервисами
+
 ## Структура проекта
 ```
 RecipeAPI/                # Корень репозитория
-├── RecipeAPI/            # Django проект с настройками
-├── recipes/              # Основное приложение с логикой API
+├── RecipeAPI/            # Django проект (core настройки)
+│   ├── settings.py       # Основные настройки
+│   ├── urls.py           # Главные маршруты
+│   ├── celery.py         # Инициализация Celery
+│   └── ...
+├── recipes/              # Основное приложение API
 │   ├── models.py         # Модели данных
 │   ├── serializers.py    # Сериализаторы DRF
-│   ├── views.py          # API views
-│   ├── urls.py           # URL маршруты
-│   ├── filters.py        # Фильтры
-│   ├── permissions.py    # Разрешения
+│   ├── views.py          # API endpoints
+│   ├── urls.py           # Маршруты приложения
+│   ├── filters.py        # Фильтрация
+│   ├── permissions.py    # Права доступа
+│   ├── pagination.py     # Кастомная пагинация
+│   ├── tasks.py          # Celery задачи
 │   ├── tests.py          # Тесты
-│   └── factories.py      # Фабрики для тестов
+│   ├── factories.py      # Фабрики для тестов
+│   └── ...
 ├── manage.py             # Точка входа Django
 ├── requirements.txt      # Зависимости для запуска проекта
 ├── requirements-dev.txt  # Зависимости для разработки
 ├── Dockerfile            # Docker образ проекта
-├── docker-compose.yml    # Docker Compose конфигурация
+├── docker-compose.yml    # Сервисы (db, redis, web, celery)
 ├── entrypoint.sh         # Скрипт запуска Docker контейнера
+├── pytest.ini            # Настройки тестирования
+├── conftest.py           # Общие фикстуры для тестов
 ├── .env.example          # Шаблон переменных окружения
-# ├── pytest.ini          # Настройки тестирования
-# ├── conftest.py         # Общие фикстуры для тестов
-# ├── Procfile            # Для деплоя на Railway
-# ├── runtime.txt         # Версия Python для хостинга
+├── Procfile              # Для деплоя на Railway
+├── runtime.txt           # Версия Python для хостинга
 └── README.md             # Документация
 ```
 
 ## Связанные проекты
-**Recipe Telegram Bot** - компаньон для этого API.  
+**Recipe Telegram Bot** – компаньон для этого API.  
 
 **Репозиторий:** https://github.com/kseniadmay/RecipeBot  
 **Telegram:** [@recipeapibot](https://t.me/recipeapibot)
