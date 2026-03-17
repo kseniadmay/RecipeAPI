@@ -32,3 +32,5 @@ htmlcov/
 Thumbs.db
 misc/
 gunicorn.ctl
+celerybeat-schedule*
+scripts/

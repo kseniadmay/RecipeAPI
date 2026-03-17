@@ -1,6 +1,6 @@
+import json
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from unicodedata import category
 
 from .models import Category, Recipe, Ingredient, Step, Favorite
 
@@ -63,8 +63,14 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     category = CategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False)
-    ingredients = IngredientSerializer(many=True)
-    steps = StepSerializer(many=True)
+
+    # Для отображения
+    ingredients = IngredientSerializer(many=True, read_only=True)
+    steps = StepSerializer(many=True, read_only=True)
+
+    # Для записи
+    ingredients_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    steps_data = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Recipe
@@ -72,22 +78,107 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'author', 'category', 'category_id',
             'cook_time', 'servings', 'difficulty', 'image',
             'calories', 'ingredients', 'steps',
+            'ingredients_data', 'steps_data',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'author', 'created_at', 'updated_at']
 
+    def validate_ingredients_data(self, value):
+        """Валидация и парсинг ingredients_data"""
+        if not value:
+            return []
+
+        try:
+            # Парсим JSON-строку
+            data = json.loads(value)
+
+            # Проверяем что это список
+            if not isinstance(data, list):
+                raise serializers.ValidationError('Должен быть массив объектов')
+
+            # Проверяем количество
+            if not data:
+                raise serializers.ValidationError('Рецепт должен содержать хотя бы один ингредиент')
+            if len(data) > 50:
+                raise serializers.ValidationError('Слишком много ингредиентов (максимум 50)')
+
+            # Проверяем структуру каждого ингредиента
+            for i, ingredient in enumerate(data):
+                if not isinstance(ingredient, dict):
+                    raise serializers.ValidationError(f'Ингредиент #{i + 1} должен быть объектом')
+                if 'name' not in ingredient:
+                    raise serializers.ValidationError(f'Ингредиент #{i + 1}: отсутствует поле "name"')
+                if 'amount' not in ingredient:
+                    raise serializers.ValidationError(f'Ингредиент #{i + 1}: отсутствует поле "amount"')
+                if 'unit' not in ingredient:
+                    raise serializers.ValidationError(f'Ингредиент #{i + 1}: отсутствует поле "unit"')
+
+            return data
+
+        except json.JSONDecodeError as e:
+            raise serializers.ValidationError(f'Некорректный JSON: {str(e)}')
+
+    def validate_steps_data(self, value):
+        """Валидация и парсинг steps_data"""
+        if not value:
+            return []
+
+        try:
+            # Парсим JSON-строку
+            data = json.loads(value)
+
+            # Проверяем что это список
+            if not isinstance(data, list):
+                raise serializers.ValidationError('Должен быть массив объектов')
+
+            # Проверяем количество
+            if not data:
+                raise serializers.ValidationError('Рецепт должен содержать хотя бы один шаг')
+            if len(data) > 30:
+                raise serializers.ValidationError('Слишком много шагов (максимум 30)')
+
+            # Проверяем структуру каждого шага
+            for i, step in enumerate(data):
+                if not isinstance(step, dict):
+                    raise serializers.ValidationError(f'Шаг #{i + 1} должен быть объектом')
+                if 'order' not in step:
+                    raise serializers.ValidationError(f'Шаг #{i + 1}: отсутствует поле "order"')
+                if 'description' not in step:
+                    raise serializers.ValidationError(f'Шаг #{i + 1}: отсутствует поле "description"')
+
+            return data
+
+        except json.JSONDecodeError as e:
+            raise serializers.ValidationError(f'Некорректный JSON: {str(e)}')
+
+    def validate_cook_time(self, value):
+        """Валидация времени приготовления"""
+        if value <= 0:
+            raise serializers.ValidationError('Время приготовления должно быть больше 0')
+        if value > 1440:  # 24 часа
+            raise serializers.ValidationError('Время приготовления не может быть больше 24 часов')
+        return value
+
+    def validate_servings(self, value):
+        """Валидация количества порций"""
+        if value <= 0:
+            raise serializers.ValidationError('Количество порций должно быть больше 0')
+        if value > 100:
+            raise serializers.ValidationError('Количество порций не может быть больше 100')
+        return value
+
     def create(self, validated_data):
         """Создает рецепт вместе с ингредиентами и шагами"""
 
-        ingredients_data = validated_data.pop('ingredients')
-        steps_data = validated_data.pop('steps')
+        # Извлекаем данные (уже распарсенные в validate_*)
+        ingredients_data = validated_data.pop('ingredients_data', [])
+        steps_data = validated_data.pop('steps_data', [])
         category_id = validated_data.pop('category_id', None)
 
         # Проверяем категорию
         if category_id:
             try:
-                category = Category.objects.get(id=category_id)
-                validated_data['category'] = category
+                validated_data['category'] = Category.objects.get(id=category_id)
             except Category.DoesNotExist:
                 raise serializers.ValidationError('Категория не найдена')
 
@@ -107,15 +198,15 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Обновляет рецепт вместе с ингредиентами и шагами"""
 
-        ingredients_data = validated_data.pop('ingredients', None)
-        steps_data = validated_data.pop('steps', None)
+        # Извлекаем данные (уже распарсенные в validate_*)
+        ingredients_data = validated_data.pop('ingredients_data', None)
+        steps_data = validated_data.pop('steps_data', None)
         category_id = validated_data.pop('category_id', None)
 
         # Обновляем категорию
         if category_id:
             try:
-                category = Category.objects.get(id=category_id)
-                validated_data['category'] = category
+                validated_data['category'] = Category.objects.get(id=category_id)
             except Category.DoesNotExist:
                 raise serializers.ValidationError('Категория не найдена')
 
@@ -127,52 +218,16 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         # Обновляем ингредиенты
         if ingredients_data is not None:
             instance.ingredients.all().delete()
-            for ingredient_data in ingredients_data:
-                Ingredient.objects.create(recipe=instance, **ingredient_data)
+            for ingredient in ingredients_data:
+                Ingredient.objects.create(recipe=instance, **ingredient)
 
         # Обновляем шаги
         if steps_data is not None:
             instance.steps.all().delete()
-            for step_data in steps_data:
-                Step.objects.create(recipe=instance, **step_data)
+            for step in steps_data:
+                Step.objects.create(recipe=instance, **step)
 
         return instance
-
-    def validate_cook_time(self, value):
-        """Валидация времени приготовления"""
-
-        if value <= 0:
-            raise serializers.ValidationError('Время приготовления должно быть больше 0')
-        if value > 1440:  # 24 часа
-            raise serializers.ValidationError('Время приготовления не может быть больше 24 часов')
-        return value
-
-    def validate_ingredients(self, value):
-        """Валидация ингредиентов"""
-
-        if not value:
-            raise serializers.ValidationError('Рецепт должен содержать хотя бы один ингредиент')
-        if len(value) > 50:
-            raise serializers.ValidationError('Слишком много ингредиентов (максимум 50)')
-        return value
-
-    def validate_servings(self, value):
-        """Валидация количества порций"""
-
-        if value <= 0:
-            raise serializers.ValidationError('Количество порций должно быть больше 0')
-        if value > 100:
-            raise serializers.ValidationError('Количество порций не может быть больше 100')
-        return value
-
-    def validate_steps(self, value):
-        """Валидация количества шагов"""
-
-        if not value:
-            raise serializers.ValidationError('Рецепт должен содержать хотя бы один шаг')
-        if len(value) > 30:
-            raise serializers.ValidationError('Слишком много шагов (максимум 30)')
-        return value
 
 
 class FavoriteSerializer(serializers.ModelSerializer):

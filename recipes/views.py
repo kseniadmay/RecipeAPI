@@ -9,6 +9,7 @@ from drf_yasg.utils import swagger_auto_schema
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from django.utils.decorators import method_decorator
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import Category, Recipe, Favorite
 from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailSerializer, FavoriteSerializer, \
@@ -16,6 +17,7 @@ from .serializers import CategorySerializer, RecipeListSerializer, RecipeDetailS
 from .filters import RecipeFilter
 from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
 from .pagination import RecipePagination
+from .tasks import send_welcome_email, generate_recipe_thumbnail
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -65,6 +67,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     # Пагинация
     pagination_class = RecipePagination
 
+    # Добавляем поддержку загрузки файлов через Swagger / multipart/form-data
+    parser_classes = [MultiPartParser, FormParser]
+
     def get_serializer_class(self):
         """Использует краткий сериализатор для списка и подробный для остальных действий"""
 
@@ -76,12 +81,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Автоматически устанавливает текущего пользователя как автора нового рецепта"""
 
         serializer.save(author=self.request.user)
+        recipe = serializer.save(author=self.request.user)
+
         # Инвалидируем кэш при создании
         cache.delete('recipe_list')
+
+        # CELERY: Генерируем thumbnail асинхронно (если есть изображение)
+        if recipe.image:
+            generate_recipe_thumbnail.delay(recipe.id)
 
     def perform_update(self, serializer):
         serializer.save()
         # Инвалидируем кэш при обновлении
+
         cache.delete('recipe_list')
         cache.delete(f'recipe_{self.kwargs["pk"]}')
 
@@ -252,9 +264,25 @@ class FavoriteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Возвращает объекты избранного только для текущего пользователя"""
+        """
+        Возвращает объекты избранного только для текущего пользователя.
 
-        return Favorite.objects.filter(user=self.request.user).select_related('recipe')
+        1. swagger_fake_view - флаг, который drf_yasg ставит при генерации документации Swagger.
+           В этот момент нет реального пользователя, поэтому self.request.user - AnonymousUser.
+           Если не проверять, Django пытается преобразовать его в id и падает с TypeError.
+
+        2. Если пользователь не аутентифицирован, возвращаем пустой queryset,
+           чтобы не допустить ошибок при фильтрации.
+
+        3. В реальном API фильтруем объекты только по текущему авторизованному пользователю.
+        """
+
+        if getattr(self, 'swagger_fake_view', False):
+            return Favorite.objects.none()
+        user = self.request.user
+        if not user.is_authenticated:
+            return Favorite.objects.none()
+        return Favorite.objects.filter(user=user).select_related('recipe')
 
     def destroy(self, request, *args, **kwargs):
         """Удаляет объект из избранного и возвращает информативный ответ"""
@@ -287,10 +315,14 @@ def register(request):
         # Генерируем токены
         refresh = RefreshToken.for_user(user)
 
+        # CELERY: Отправляем приветственное письмо асинхронно
+        send_welcome_email.delay(user.id)
+
         return Response({
             'user': UserSerializer(user).data,
             'refresh': str(refresh),
-            'access': str(refresh.access_token)
+            'access': str(refresh.access_token),
+            'message': 'Пользователь успешно зарегистрирован! Проверьте вашу почту!'
         }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

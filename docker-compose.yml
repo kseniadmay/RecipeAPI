@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis для кэширования
+  # Redis для кэширования и Celery broker
   redis:
     image: redis:8-alpine
     ports:
@@ -31,7 +31,8 @@ services:
   web:
     build: .
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "mkdir -p /app/media/recipes /app/media/thumbnails &&
+             python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              gunicorn RecipeAPI.wsgi:application --bind 0.0.0.0:8000"
     volumes:
@@ -47,6 +48,39 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    environment:
+      - DATABASE_HOST=db
+      - REDIS_HOST=redis
+  
+  # Celery Worker (обработка асинхронных задач)
+  celery_worker:
+    build: .
+    command: celery -A RecipeAPI worker --loglevel=info
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
+    environment:
+      - DATABASE_HOST=db
+      - REDIS_HOST=redis
+
+  # Celery Beat (планировщик периодических задач)
+  celery_beat:
+    build: .
+    command: celery -A RecipeAPI beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - web
     environment:
       - DATABASE_HOST=db
       - REDIS_HOST=redis

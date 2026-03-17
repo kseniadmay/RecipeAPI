@@ -213,8 +213,13 @@ if not DEBUG:
 
 # ДЛЯ МЕДИАФАЙЛОВ (ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯМИ)
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  # Создаём папку, куда сохраняются загруженные пользователями файлы
+
+# Ограничения на загрузку файлов
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # максимум данных запроса в памяти (10 MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # максимум размера файла для загрузки в память (10 MB)
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  # По умолчанию будет создаваться первичный ключ для новых моделей
 
@@ -304,3 +309,55 @@ if RUNNING_TESTS:
 
     # Разрешаем все CORS для тестов
     CORS_ALLOW_ALL_ORIGINS = True
+
+
+# ТЕСТИРУЕМ SQL ЗАПРОСЫ
+if DEBUG:
+    INSTALLED_APPS += ['debug_toolbar']
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    INTERNAL_IPS = ['127.0.0.1', 'localhost']
+
+    # Для Docker
+    import socket
+    hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+    INTERNAL_IPS += [ip[: ip.rfind(".")] + ".1" for ip in ips]
+
+
+
+# НАСТРОЙКИ Celery
+
+# Broker (очередь задач) - используем Redis
+CELERY_BROKER_URL = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
+
+# Backend (хранение результатов) - тоже Redis
+CELERY_RESULT_BACKEND = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
+
+# Формат сериализации
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+# Временная зона
+CELERY_TIMEZONE = 'UTC'
+
+# Автоматически удалять выполненные задачи
+CELERY_RESULT_EXPIRES = 3600  # 1 час
+
+# Логирование
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут максимум на задачу
+
+
+# НАСТРОЙКИ EMAIL ДЛЯ ОТПРАВКИ ПИСЕМ
+
+# Для разработки используем console backend (письма в консоль)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Для продакшена раскомментируй и настрой:
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+# DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@recipeapi.com')
