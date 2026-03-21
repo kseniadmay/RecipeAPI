@@ -13,53 +13,59 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 import sys
 from pathlib import Path
-from decouple import config     # Читаем переменные из .env
+from decouple import config  # Читаем переменные из .env
 from datetime import timedelta  # Задаём срок жизни JWT-токенов
-import dj_database_url          # Подключаем для настройки базы данных через URL
+import dj_database_url  # Подключаем для настройки базы данных через URL
 
-
+# ====================================
 # ПУТЬ К КОРНЮ ПРОЕКТА
+# ====================================
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 
+# ====================================
 # ОСНОВНЫЕ НАСТРОЙКИ БЕЗОПАСНОСТИ
+# ====================================
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')  # Берём SECRET_KEY из .env
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)  # Берём DEBUG из .env, если его нет - ставим False, приводим к
-                                                   # булевому типу
+# булевому типу
 
 
+# ====================================
 # СПИСОК РАЗРЕШЁННЫХ ХОСТОВ
+# ====================================
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS',
                        default='localhost,127.0.0.1,recipeapi.up.railway.app'
                        ).split(',')  # Берём разрешённые хосты из .env и преобразуем в список
 
-
+# ====================================
 # НАСТРОЙКИ БЕЗОПАСНОСТИ ДЛЯ ПРОДАКШЕНА
+# ====================================
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO',
                                'https')  # Сообщает Django, что запрос был HTTPS до прокси (Railway)
 
-    SECURE_SSL_REDIRECT = True          # Автоматически перенаправляет все HTTP-запросы на HTTPS
-    SESSION_COOKIE_SECURE = True        # Делает cookie сессий доступными только по HTTPS
-    CSRF_COOKIE_SECURE = True           # То же самое для CSRF cookie
-    SECURE_BROWSER_XSS_FILTER = True    # Включает встроенный фильтр XSS в браузерах
+    SECURE_SSL_REDIRECT = True  # Автоматически перенаправляет все HTTP-запросы на HTTPS
+    SESSION_COOKIE_SECURE = True  # Делает cookie сессий доступными только по HTTPS
+    CSRF_COOKIE_SECURE = True  # То же самое для CSRF cookie
+    SECURE_BROWSER_XSS_FILTER = True  # Включает встроенный фильтр XSS в браузерах
     SECURE_CONTENT_TYPE_NOSNIFF = True  # Запрещает браузеру угадывать тип контента
-    X_FRAME_OPTIONS = 'DENY'            # Запрещает вставку сайта в iframe
+    X_FRAME_OPTIONS = 'DENY'  # Запрещает вставку сайта в iframe
 
-
+# ====================================
 # ПРИЛОЖЕНИЯ DJANGO
+# ====================================
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -70,17 +76,18 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Сторонние библиотеки
-    'rest_framework',            # Для создания API
+    'rest_framework',  # Для создания API
     'rest_framework_simplejwt',  # Для JWT-аутентификации
-    'corsheaders',               # Для поддержки CORS
-    'drf_yasg',                  # Для генерации документации Swagger
+    'corsheaders',  # Для поддержки CORS
+    'drf_yasg',  # Для генерации документации Swagger
 
     # Локальные
     'recipes',
 ]
 
-
+# ====================================
 # MIDDLEWARE
+# ====================================
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -96,8 +103,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'RecipeAPI.urls'
 
-
+# ====================================
 # НАСТРОЙКИ ШАБЛОНОВ
+# ====================================
 
 TEMPLATES = [
     {
@@ -118,20 +126,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'RecipeAPI.wsgi.application'
 
-
+# ====================================
 # БАЗА ДАННЫХ
+# ====================================
+
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 if DEBUG:
     # Локальная база PostgreSQL
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',                    # Используем PostgreSQL
-            'NAME': config('DATABASE_NAME', default='recipe_db'),         # \
-            'USER': config('DATABASE_USER', default='postgres'),          #  \
-            'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),  #   - Берём все переменные из .env
-            'HOST': config('DATABASE_HOST', default='localhost'),         #  / локалка = localhost, контейнер = db
-            'PORT': config('DATABASE_PORT', default='5432'),              # /
+            'ENGINE': 'django.db.backends.postgresql',  # Используем PostgreSQL
+            'NAME': config('DATABASE_NAME', default='recipe_db'),  # \
+            'USER': config('DATABASE_USER', default='postgres'),  # \
+            'PASSWORD': config('DATABASE_PASSWORD', default='postgres'),  # - Берём все переменные из .env
+            'HOST': config('DATABASE_HOST', default='localhost'),  # / локалка = localhost, контейнер = db
+            'PORT': config('DATABASE_PORT', default='5432'),  # /
         }
     }
 # Настройка базы данных для Railway
@@ -146,35 +156,10 @@ else:
         )
     }
 
-
-# НАСТРОЙКА КЭШИРОВАНИЯ ЧЕРЕЗ REDIS
-
-CACHES = {
-    'default': {
-        # Используем Redis как backend для кэша Django
-        'BACKEND': 'django_redis.cache.RedisCache',
-
-        # Адрес Redis-сервера (берётся из переменной окружения REDIS_HOST)
-        'LOCATION': f"redis://{config('REDIS_HOST', default='localhost')}:6379/1",
-
-        'OPTIONS': {
-            # Клиент для работы с Redis через django-redis
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
-
-        # Префикс для ключей кэша (позволяет избежать конфликтов с другими проектами)
-        'KEY_PREFIX': 'RecipeAPI',
-
-        # Время хранения данных в кэше по умолчанию (в секундах)
-        'TIMEOUT': 300,  # 5 минут
-    }
-}
-
-# Время жизни кэшированных данных (используется в приложении)
-CACHE_TTL = 60 * 5  # 5 минут
-
-
+# ====================================
 # ВАЛИДАТОРЫ ПАРОЛЯ
+# ====================================
+
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -184,8 +169,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
-
+# ====================================
 # ЛОКАЛИЗАЦИЯ
+# ====================================
+
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'ru-ru'
@@ -193,13 +180,15 @@ TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 USE_TZ = True
 
-
+# ====================================
 # ДЛЯ СТАТИЧЕСКИХ ФАЙЛОВ
+# ====================================
+
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # Создаём папку, куда собираются все статические файлы командой collectstatic
-                                        # (для продакшена, чтобы веб-сервер мог раздавать их напрямую)
+# (для продакшена, чтобы веб-сервер мог раздавать их напрямую)
 
 # Для разработки: берём статику прямо из проекта
 if DEBUG:
@@ -210,21 +199,22 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
     WHITENOISE_USE_FINDERS = True
 
-
+# ====================================
 # ДЛЯ МЕДИАФАЙЛОВ (ЗАГРУЗКА ПОЛЬЗОВАТЕЛЯМИ)
+# ====================================
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  # Создаём папку, куда сохраняются загруженные пользователями файлы
 
 # Ограничения на загрузку файлов
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # максимум данных запроса в памяти (10 MB)
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # максимум размера файла для загрузки в память (10 MB)
-
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # максимум данных запроса в памяти (10 MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # максимум размера файла для загрузки в память (10 MB)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  # По умолчанию будет создаваться первичный ключ для новых моделей
 
-
+# ====================================
 # НАСТРОЙКА DJANGO REST FRAMEWORK ДЛЯ РАБОТЫ С API
+# ====================================
 
 REST_FRAMEWORK = {
     # Как пользователи будут аутентифицироваться
@@ -240,8 +230,9 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,  # На одной странице будет 10 объектов
 }
 
-
+# ====================================
 # JWT-АУТЕНТИФИКАЦИЯ (JSON Web Tokens)
+# ====================================
 
 SIMPLE_JWT = {
     # Сколько будет жить access-токен (для запросов к API)
@@ -257,8 +248,9 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,  # True - блокируем старые refresh-токены
 }
 
-
+# ====================================
 # SWAGGER ДЛЯ JWT
+# ====================================
 
 # Настройка Swagger для поддержки JWT-токенов. Позволяет в интерфейсе Swagger вставлять токен в поле "Authorize" и
 # автоматически добавлять заголовок Authorization: Bearer <token> к запросам
@@ -274,7 +266,9 @@ SWAGGER_SETTINGS = {
 }
 SWAGGER_USE_COMPAT_RENDERERS = False  # Убирает warning от drf-yasg при рендеринге документации
 
-# CORS (разрешение запросов с других доменов/портов)
+# ====================================
+# CORS (РАЗРЕШЕНИЕ ЗАПРОСОВ С ДРУГИХ ДОМЕНОВ/ПОРТОВ)
+# ====================================
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
@@ -282,14 +276,15 @@ else:
         'https://recipeapi.up.railway.app',
     ]
 
-
+# ====================================
 # ТЕСТОВОЕ ОКРУЖЕНИЕ
+# ====================================
 
 # Отключаем автоматический редирект на HTTPS во время запуска тестов, чтобы APIClient в pytest получал ожидаемые коды
 # ответов (200, 201 и т.д.) без перенаправления на https://testserver
 # Определяем, что мы запускаем тесты
 RUNNING_TESTS = (
-        'pytest' in sys.argv or                # через команду pytest
+        'pytest' in sys.argv or  # через команду pytest
         os.environ.get('PYTEST_CURRENT_TEST')  # или pytest создаёт эту переменную
 )
 
@@ -310,8 +305,10 @@ if RUNNING_TESTS:
     # Разрешаем все CORS для тестов
     CORS_ALLOW_ALL_ORIGINS = True
 
-
+# ====================================
 # ТЕСТИРУЕМ SQL ЗАПРОСЫ
+# ====================================
+
 if DEBUG:
     INSTALLED_APPS += ['debug_toolbar']
     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
@@ -319,18 +316,24 @@ if DEBUG:
 
     # Для Docker
     import socket
+
     hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
     INTERNAL_IPS += [ip[: ip.rfind(".")] + ".1" for ip in ips]
 
-
-
+# ====================================
 # НАСТРОЙКИ Celery
+# ====================================
 
-# Broker (очередь задач) - используем Redis
-CELERY_BROKER_URL = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
-
-# Backend (хранение результатов) - тоже Redis
-CELERY_RESULT_BACKEND = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
+# Broker и Backend
+if DEBUG:
+    # Локально: используем redis из docker-compose
+    CELERY_BROKER_URL = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
+    CELERY_RESULT_BACKEND = f"redis://{config('REDIS_HOST', default='localhost')}:6379/0"
+else:
+    # На Railway: используем REDIS_URL из Railway Redis сервиса
+    REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+    CELERY_BROKER_URL = REDIS_URL
+    CELERY_RESULT_BACKEND = REDIS_URL
 
 # Формат сериализации
 CELERY_ACCEPT_CONTENT = ['json']
@@ -347,17 +350,95 @@ CELERY_RESULT_EXPIRES = 3600  # 1 час
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут максимум на задачу
 
+print(f"📊 CELERY BROKER: {CELERY_BROKER_URL}")
 
-# НАСТРОЙКИ EMAIL ДЛЯ ОТПРАВКИ ПИСЕМ
+# ====================================
+# НАСТРОЙКА КЭШИРОВАНИЯ ЧЕРЕЗ REDIS
+# ====================================
 
-# Для разработки используем console backend (письма в консоль)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+if DEBUG:
+    # Локально
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': f"redis://{config('REDIS_HOST', default='localhost')}:6379/1",
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'RecipeAPI',
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    # На Railway
+    REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL.replace('/0', '/1'),  # Используем DB 1 для кэша
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'RecipeAPI',
+            'TIMEOUT': 300,
+        }
+    }
 
-# Для продакшена раскомментируй и настрой:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-# DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@recipeapi.com')
+# Время жизни кэшированных данных
+CACHE_TTL = 60 * 5  # 5 минут
+
+print(f"📦 REDIS CACHE: {CACHES['default']['LOCATION']}")
+
+# ====================================
+# Email Configuration (автоматическое переключение dev/prod)
+# ====================================
+
+if DEBUG:
+    # РАЗРАБОТКА: Mailhog (локально)
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'mailhog'
+    EMAIL_PORT = 1025
+    EMAIL_USE_TLS = False
+    EMAIL_USE_SSL = False
+    EMAIL_HOST_USER = ''
+    EMAIL_HOST_PASSWORD = ''
+    DEFAULT_FROM_EMAIL = 'Recipe API Dev <noreply@recipeapi.local>'
+    print("📧 EMAIL MODE: Mailhog (Development) - письма в http://localhost:8025")
+else:
+    # ПРОДАКШЕН: Gmail/Mail.ru SMTP (на Railway)
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+    EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Recipe API <noreply@recipeapi.com>')
+
+    # ДОПОЛНИТЕЛЬНОЕ ЛОГИРОВАНИЕ (для отладки)
+    print("=" * 60)
+    print("📧 EMAIL MODE: Production SMTP")
+    print(f"   Backend: {EMAIL_BACKEND}")
+    print(f"   Host: {EMAIL_HOST}")
+    print(f"   Port: {EMAIL_PORT}")
+    print(f"   TLS: {EMAIL_USE_TLS}")
+    print(f"   SSL: {EMAIL_USE_SSL}")
+    print(f"   User: {EMAIL_HOST_USER}")
+    print(f"   Password: {'*' * len(EMAIL_HOST_PASSWORD) if EMAIL_HOST_PASSWORD else 'NOT SET'}")
+    print(f"   From: {DEFAULT_FROM_EMAIL}")
+    print("=" * 60)
+
+# Таймаут для email
+EMAIL_TIMEOUT = 10
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+}

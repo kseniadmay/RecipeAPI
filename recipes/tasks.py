@@ -6,20 +6,19 @@ from django.conf import settings
 
 from .models import Recipe
 
-
 User = get_user_model()
 
 
 @shared_task
 def send_welcome_email(user_id):
-    """Отправление приветственного письма новому пользователю"""
+    """Отправка welcome email новому пользователю"""
 
     try:
         user = User.objects.get(id=user_id)
 
         subject = f'Добро пожаловать в Recipe API, {user.username}!'
-        message = f"""
-Привет, {user.username}!
+
+        message = f'''Привет {user.username}!
 
 Спасибо за регистрацию в Recipe API!
 
@@ -30,30 +29,64 @@ def send_welcome_email(user_id):
 
 Начни с создания своего первого рецепта!
 
-API: http://localhost:8000/api/
-Документация: http://localhost:8000/docs/
+API: https://recipeapi.up.railway.app/api/
+Документация: https://recipeapi.up.railway.app/docs/
 
 С уважением,
-Команда Recipe API
-        """
+Команда Recipe API'''
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
-                                                              'DEFAULT_FROM_EMAIL') else 'noreply@recipeapi.com',
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        # Используем разные методы в зависимости от окружения
+        if settings.DEBUG:
+            # Локально: Django send_mail (через Mailhog SMTP)
+            print(f"✉️ Отправка email на {user.email}...")
 
-        print(f"Приветствие отправлено пользователю {user.username} ({user.email})")
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
+                                                                  'DEFAULT_FROM_EMAIL') else 'noreply@recipeapi.com',
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            print(f"✅ Welcome email отправлен пользователю {user.username} ({user.email})")
+
+        else:
+            # На Railway: SendGrid API (обходит блокировку SMTP портов)
+            import os
+            from sendgrid import SendGridAPIClient
+            from sendgrid.helpers.mail import Mail, ClickTracking, TrackingSettings
+
+            print(f"✉️ Отправка email через SendGrid API на {user.email}...")
+
+            # Создаём письмо
+            sg_message = Mail(
+                from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
+                                                                  'DEFAULT_FROM_EMAIL') else 'Recipe API <noreply@recipeapi.com>',
+                to_emails=user.email,
+                subject=subject,
+                plain_text_content=message
+            )
+
+            # ОТКЛЮЧАЕМ click tracking (он ломает форматирование plain text!)
+            tracking_settings = TrackingSettings()
+            tracking_settings.click_tracking = ClickTracking(enable=False, enable_text=False)
+            sg_message.tracking_settings = tracking_settings
+
+            sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+            response = sg.send(sg_message)
+
+            print(f"✅ SendGrid API: Email отправлен {user.username} ({user.email}), status: {response.status_code}")
+
         return f"Email sent to {user.email}"
 
     except User.DoesNotExist:
-        print(f"Пользователь с ID {user_id} не найден")
+        print(f"❌ Пользователь с ID {user_id} не найден")
         return f"User {user_id} not found"
     except Exception as e:
-        print(f"Ошибка отправки email: {str(e)}")
+        print(f"❌ Ошибка отправки email: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
@@ -64,7 +97,6 @@ def generate_recipe_thumbnail(recipe_id):
 
     Args:
         recipe_id: ID рецепта
-
     """
 
     try:
@@ -75,7 +107,7 @@ def generate_recipe_thumbnail(recipe_id):
 
         # Проверяем, что у рецепта есть изображение
         if not recipe.image:
-            print(f"У рецепта {recipe_id} нет изображения")
+            print(f"❌ У рецепта {recipe_id} нет изображения")
             return f"Recipe {recipe_id} has no image"
 
         # Путь к оригинальному изображению
@@ -90,21 +122,21 @@ def generate_recipe_thumbnail(recipe_id):
         thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
 
         # Открываем изображение и создаём превью
-        print(f"Создаю thumbnail для рецепта '{recipe.title}'...")
+        print(f"🖼️ Создаю thumbnail для рецепта '{recipe.title}'...")
 
         with Image.open(image_path) as img:
             # Создаём превью 300x300 (сохраняя пропорции)
             img.thumbnail((300, 300), Image.Resampling.LANCZOS)
             img.save(thumbnail_path, quality=85)
 
-        print(f"Thumbnail создан: {thumbnail_path}")
+        print(f"✅ Thumbnail создан: {thumbnail_path}")
         return f"Thumbnail created for recipe {recipe_id}"
 
     except Recipe.DoesNotExist:
-        print(f"Рецепт с ID {recipe_id} не найден")
+        print(f"❌ Рецепт с ID {recipe_id} не найден")
         return f"Recipe {recipe_id} not found"
     except Exception as e:
-        print(f"Ошибка создания thumbnail: {str(e)}")
+        print(f"❌ Ошибка создания thumbnail: {str(e)}")
         raise
 
 
@@ -120,7 +152,7 @@ def send_daily_recipe_digest():
         recipe = Recipe.objects.order_by('?').first()
 
         if not recipe:
-            print("Нет рецептов для отправки дайджеста")
+            print("❌ Нет рецептов для отправки дайджеста")
             return "No recipes available"
 
         # Получаем всех пользователей с email
@@ -129,9 +161,9 @@ def send_daily_recipe_digest():
         subject = '🍳 Рецепт дня от Recipe API!'
 
         emails_sent = 0
+
         for user in users:
-            message = f"""
-Привет {user.username}!
+            message = f'''Привет {user.username}!
 
 Сегодняшний рецепт дня: {recipe.title}
 
@@ -143,27 +175,57 @@ def send_daily_recipe_digest():
 
 Попробуй приготовить!
 
-Смотреть рецепт: http://localhost:8000/api/recipes/{recipe.id}/
+Смотреть рецепт: https://recipeapi.up.railway.app/api/recipes/{recipe.id}/
 
 С уважением,
-Команда Recipe API
-            """
+Команда Recipe API'''
 
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
-                                                                  'DEFAULT_FROM_EMAIL') else 'noreply@recipeapi.com',
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
+            if settings.DEBUG:
+                # Локально: Django SMTP (через Mailhog)
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
+                                                                      'DEFAULT_FROM_EMAIL') else 'noreply@recipeapi.com',
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            else:
+                # На Railway: SendGrid API
+                try:
+                    import os
+                    from sendgrid import SendGridAPIClient
+                    from sendgrid.helpers.mail import Mail, ClickTracking, TrackingSettings
+
+                    # Создаём письмо
+                    sg_message = Mail(
+                        from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings,
+                                                                          'DEFAULT_FROM_EMAIL') else 'Recipe API <noreply@recipeapi.com>',
+                        to_emails=user.email,
+                        subject=subject,
+                        plain_text_content=message
+                    )
+
+                    # ОТКЛЮЧАЕМ click tracking
+                    tracking_settings = TrackingSettings()
+                    tracking_settings.click_tracking = ClickTracking(enable=False, enable_text=False)
+                    sg_message.tracking_settings = tracking_settings
+
+                    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+                    sg.send(sg_message)
+
+                except Exception as e:
+                    print(f"⚠️ Ошибка отправки дайджеста пользователю {user.username}: {str(e)}")
+                    # Не падаем, продолжаем отправлять остальным
+                    continue
+
             emails_sent += 1
 
-        print(f"Дайджест отправлен {emails_sent} пользователям. Рецепт: '{recipe.title}'")
+        print(f"✅ Дайджест отправлен {emails_sent} пользователям. Рецепт: '{recipe.title}'")
         return f"Digest sent to {emails_sent} users"
 
     except Exception as e:
-        print(f"Ошибка отправки дайджеста: {str(e)}")
+        print(f"❌ Ошибка отправки дайджеста: {str(e)}")
         raise
 
 
@@ -177,18 +239,12 @@ def cleanup_old_cache():
     from django.core.cache import cache
 
     try:
-        # Пример: удаляем все ключи старше определённого времени
-        # В реальности Redis сам удаляет по TTL
         print("🧹 Запуск очистки старого кэша...")
-
-        # Здесь может быть логика очистки
-        # Например, удаление неиспользуемых ключей
-
-        print("Очистка кэша завершена")
+        print("✅ Очистка кэша завершена")
         return "Cache cleanup completed"
 
     except Exception as e:
-        print(f"Ошибка очистки кэша: {str(e)}")
+        print(f"❌ Ошибка очистки кэша: {str(e)}")
         raise
 
 
@@ -201,11 +257,11 @@ def demo_long_task(duration=10):
         duration: сколько секунд "работать"
     """
 
-    print(f"Начинаю долгую задачу на {duration} секунд...")
+    print(f"⏳ Начинаю долгую задачу на {duration} секунд...")
 
     for i in range(duration):
         time.sleep(1)
         print(f"  Прогресс: {i + 1}/{duration} секунд")
 
-    print(f"Долгая задача завершена!")
+    print(f"✅ Долгая задача завершена!")
     return f"Task completed after {duration} seconds"

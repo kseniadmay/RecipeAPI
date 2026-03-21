@@ -2,6 +2,7 @@ services:
   # PostgreSQL база данных
   db:
     image: postgres:15.17-alpine
+    container_name: recipeapi_db
     environment:
       POSTGRES_DB: recipe_db
       POSTGRES_USER: postgres
@@ -10,31 +11,52 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - recipe-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # Redis для кэширования и Celery broker
   redis:
     image: redis:8-alpine
+    container_name: recipeapi_redis
     ports:
       - "6379:6379"
+    networks:
+      - recipe-network
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # Mailhog для тестирования email (только для разработки)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: recipeapi_mailhog
+    ports:
+      - "1025:1025"  # SMTP порт (для Django)
+      - "8025:8025"  # Web UI порт (для просмотра писем)
+    networks:
+      - recipe-network
+    restart: unless-stopped
+    profiles:
+      - dev  # Запускается только с профилем dev
 
   # Django API
   web:
     build: .
+    container_name: recipeapi_web
     command: >
       sh -c "mkdir -p /app/media/recipes /app/media/thumbnails &&
              python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn RecipeAPI.wsgi:application --bind 0.0.0.0:8000"
+             gunicorn RecipeAPI.wsgi:application --bind 0.0.0.0:8000 --workers 3"
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -51,39 +73,60 @@ services:
     environment:
       - DATABASE_HOST=db
       - REDIS_HOST=redis
-  
+    networks:
+      - recipe-network
+    restart: unless-stopped
+
   # Celery Worker (обработка асинхронных задач)
   celery_worker:
     build: .
-    command: celery -A RecipeAPI worker --loglevel=info
+    container_name: recipeapi_celery_worker
+    command: celery -A RecipeAPI worker --loglevel=info --concurrency=2
     volumes:
       - .:/app
       - media_volume:/app/media
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
-      - web
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
     environment:
       - DATABASE_HOST=db
       - REDIS_HOST=redis
+    networks:
+      - recipe-network
+    restart: unless-stopped
 
   # Celery Beat (планировщик периодических задач)
   celery_beat:
     build: .
+    container_name: recipeapi_celery_beat
     command: celery -A RecipeAPI beat --loglevel=info
     volumes:
       - .:/app
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
-      - web
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
     environment:
       - DATABASE_HOST=db
       - REDIS_HOST=redis
+    networks:
+      - recipe-network
+    restart: unless-stopped
+
+networks:
+  recipe-network:
+    driver: bridge
 
 volumes:
   postgres_data:
