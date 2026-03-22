@@ -682,7 +682,7 @@ def current_user(request):
 @swagger_auto_schema(
     method='get',
     operation_summary='Настройки уведомлений',
-    operation_description='Получить текущие настройки email уведомлений пользователя.',
+    operation_description='Получить текущие настройки email уведомлений пользователя',
     responses={
         200: openapi.Response(
             'Настройки уведомлений',
@@ -699,7 +699,7 @@ def current_user(request):
 @swagger_auto_schema(
     method='patch',
     operation_summary='Изменить настройки уведомлений',
-    operation_description='Включить или отключить ежедневный email дайджест.',
+    operation_description='Включить или отключить ежедневный email дайджест',
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
