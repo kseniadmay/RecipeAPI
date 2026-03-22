@@ -12,5 +12,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('auth/register/', views.register, name='register'),
     path('auth/me/', views.current_user, name='current_user'),
-    path('settings/notifications/', email_notifications_settings, name='email-notifications-settings'),
+    path('settings/notifications/', views.email_notifications_settings, name='email-notifications-settings'),
 ]
