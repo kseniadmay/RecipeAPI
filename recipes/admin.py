@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Recipe, Ingredient, Step, Favorite
+from .models import Category, Recipe, Ingredient, Step, Favorite, UserProfile
 
 
 class IngredientInline(admin.TabularInline):
@@ -10,6 +10,13 @@ class IngredientInline(admin.TabularInline):
 class StepInline(admin.TabularInline):
     model = Step
     extra = 1
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email_notifications', 'created_at')
+    list_filter = ('email_notifications', 'created_at')
+    search_fields = ('user__username', 'user__email')
 
 
 @admin.register(Category)

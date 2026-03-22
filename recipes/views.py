@@ -16,7 +16,7 @@ from django.core.cache import cache
 from django.utils.decorators import method_decorator
 from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Category, Recipe, Favorite
+from .models import Category, Recipe, Favorite, UserProfile
 from .serializers import (
     CategorySerializer,
     RecipeListSerializer,
@@ -677,3 +677,80 @@ def register(request):
 def current_user(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary='Настройки уведомлений',
+    operation_description='Получить текущие настройки email уведомлений пользователя.',
+    responses={
+        200: openapi.Response(
+            'Настройки уведомлений',
+            examples={
+                'application/json': {
+                    'email_notifications': True
+                }
+            }
+        ),
+        401: 'Требуется авторизация'
+    },
+    tags=['Настройки']
+)
+@swagger_auto_schema(
+    method='patch',
+    operation_summary='Изменить настройки уведомлений',
+    operation_description='Включить или отключить ежедневный email дайджест.',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'email_notifications': openapi.Schema(
+                type=openapi.TYPE_BOOLEAN,
+                description='Получать ежедневный дайджест'
+            ),
+        },
+    ),
+    responses={
+        200: openapi.Response(
+            'Настройки обновлены',
+            examples={
+                'application/json': {
+                    'email_notifications': False,
+                    'message': 'Настройки обновлены'
+                }
+            }
+        ),
+        401: 'Требуется авторизация'
+    },
+    tags=['Настройки']
+)
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def email_notifications_settings(request):
+    """Управление настройками email уведомлений"""
+
+    # Получаем или создаём профиль
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        return Response({
+            'email_notifications': profile.email_notifications
+        })
+
+    elif request.method == 'PATCH':
+        email_notifications = request.data.get('email_notifications')
+
+        if email_notifications is not None:
+            profile.email_notifications = email_notifications
+            profile.save()
+
+            status_msg = 'включены' if email_notifications else 'отключены'
+
+            return Response({
+                'email_notifications': profile.email_notifications,
+                'message': f'Email уведомления {status_msg}'
+            })
+
+        return Response(
+            {'error': 'Параметр email_notifications обязателен'},
+            status=status.HTTP_400_BAD_REQUEST
+        )

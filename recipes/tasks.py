@@ -144,10 +144,12 @@ def generate_recipe_thumbnail(recipe_id):
 def send_daily_recipe_digest():
     """
     Отправка ежедневного дайджеста со случайным рецептом
-    всем пользователям (периодическая задача)
+    пользователям с включёнными уведомлениями
     """
 
     try:
+        from .models import UserProfile
+
         # Получаем случайный рецепт
         recipe = Recipe.objects.order_by('?').first()
 
@@ -155,14 +157,23 @@ def send_daily_recipe_digest():
             print("❌ Нет рецептов для отправки дайджеста")
             return "No recipes available"
 
-        # Получаем всех пользователей с email
-        users = User.objects.exclude(email='').exclude(email__isnull=True)
+        # Получаем пользователей с включёнными уведомлениями
+        profiles = UserProfile.objects.filter(
+            email_notifications=True,
+            user__email__isnull=False
+        ).exclude(user__email='').select_related('user')
+
+        if not profiles.exists():
+            print("ℹ️ Нет пользователей с включёнными уведомлениями")
+            return "No users with enabled notifications"
 
         subject = '🍳 Рецепт дня от Recipe API!'
 
         emails_sent = 0
 
-        for user in users:
+        for profile in profiles:
+            user = profile.user
+
             message = f'''Привет {user.username}!
 
 Сегодняшний рецепт дня: {recipe.title}
@@ -176,6 +187,9 @@ def send_daily_recipe_digest():
 Попробуй приготовить!
 
 Смотреть рецепт: https://recipeapi.up.railway.app/api/recipes/{recipe.id}/
+
+---
+Не хочешь получать дайджесты? Отключи их в настройках: https://recipeapi.up.railway.app/docs/
 
 С уважением,
 Команда Recipe API'''
@@ -216,12 +230,12 @@ def send_daily_recipe_digest():
 
                 except Exception as e:
                     print(f"⚠️ Ошибка отправки дайджеста пользователю {user.username}: {str(e)}")
-                    # Не падаем, продолжаем отправлять остальным
                     continue
 
             emails_sent += 1
 
-        print(f"✅ Дайджест отправлен {emails_sent} пользователям. Рецепт: '{recipe.title}'")
+        print(
+            f"✅ Дайджест отправлен {emails_sent} пользователям (с включёнными уведомлениями). Рецепт: '{recipe.title}'")
         return f"Digest sent to {emails_sent} users"
 
     except Exception as e:
