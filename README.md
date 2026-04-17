@@ -1,7 +1,5 @@
 # RECIPE API
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://recipeapi.up.railway.app/docs/)
-
 REST API для хранения рецептов: создание, поиск, фильтрация и избранное.  
 Проект демонстрирует архитектуру production-ready API с асинхронной обработкой задач и кэшированием.  
 Проект реализован на Django REST Framework с JWT-аутентификацией и документацией Swagger.
